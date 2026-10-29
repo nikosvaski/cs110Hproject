@@ -193,7 +193,6 @@ if __name__ == "__main__": # MAIN RUNTIME SEQUENCE FOR FILE
     # get and seperate data
 
     train_loop(train_dataloader, test_dataloader, model, optimizer,EPOCHS)
-    print("done!")
     # train the model
 
     test(train_dataloader, model, LOSS_FN)

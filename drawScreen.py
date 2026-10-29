@@ -36,7 +36,7 @@ def mouse_pos():
 
 def drawing_loop():
     brush_on = 1
-    width = 10
+    width = 20
     pRef = [[0,0]]
     classify = Button(0,0,100,100, "Red")
 

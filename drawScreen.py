@@ -1,10 +1,11 @@
 # Imports the pythonGraph Module
 import pythonGraph as pg
 import numpy as np
+from PIL import Image as pic
 
-SCREEN_WIDTH = 700
-SCREEN_HEIGHT = 600
-CANVAS_SIZE = 480
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 700
+CANVAS_SIZE = 560
 HOZ_BOUND = SCREEN_WIDTH - CANVAS_SIZE
 VERT_BOUND = SCREEN_HEIGHT - CANVAS_SIZE
 BUTTON_TONE = pg.create_color(139, 194, 239)
@@ -38,31 +39,102 @@ class Button():
     def exit(self):
         pg.close_window()
 
+    def save(self,buffer):
+        save_image(buffer)
+
+def create_buffer(shape):
+    return np.zeros(shape, dtype=np.uint8)
+
+def get_bounds(pixel, r, buffer_dims):
+    x, y = pixel
+    hoz_min = np.clip(x-r, 0, buffer_dims[1])
+    hoz_max = np.clip(x+r+1, 0, buffer_dims[1])
+    vert_min = np.clip(y-r, 0, buffer_dims[0])
+    vert_max = np.clip(y+r+1, 0, buffer_dims[0])
+    return ((hoz_max, hoz_min),(vert_max,vert_min))
+
+def calculate_projection(a, b, xs, ys):
+    dx = b[0] - a[0]
+    dy = b[1] - a[1]
+    x_offset = xs - a[0]
+    y_offset = ys - a[1]
+    x_dx = x_offset * dx
+    y_dy = y_offset * dy
+    t = (x_dx + y_dy) / (dx**2 + dy**2)
+    t = np.clip(t, 0, 1)
+    return t
+
+def calculate_closest_point(a, b, t):
+    dx = b[0] - a[0]
+    dy = b[1] - a[1]
+    cx = a[0] + t*dx
+    cy = a[1] + t*dy
+    return cx, cy
+
+def calculate_distance(cx, cy, xs, ys):
+    dx = xs - cx
+    dy = ys - cy
+    return np.hypot(dx,dy)
+
+def mask(dist, r):
+    m = dist<r
+    return m
+
+def buffer_draw(buffer, a, b, r):
+    buffer_dims = buffer.shape
+    ((hoz_max1, hoz_min1),(vert_max1,vert_min1)) = get_bounds(a,r,buffer_dims)
+    ((hoz_max2, hoz_min2),(vert_max2,vert_min2)) = get_bounds(b,r,buffer_dims)
+    hoz_max = max(hoz_max1,hoz_max2)
+    hoz_min = min(hoz_min1,hoz_min2)
+    vert_max = max(vert_max1,vert_max2)
+    vert_min = min(vert_min1,vert_min2)
+    draw_to = buffer[vert_min:vert_max,hoz_min:hoz_max]
+    ys, xs = np.ogrid[vert_min:vert_max,hoz_min:hoz_max]
+    t = calculate_projection(a, b, xs, ys)
+    cx, cy = calculate_closest_point(a, b, t)
+    dist = calculate_distance(cx, cy, xs, ys)
+    m = mask(dist, r)
+    draw_to[m] = 255
+
+def save_image(buffer):
+    img = pic.fromarray(buffer)
+    img.save("img.png")
+
+
 
 def mouse_pos():
     return pg.get_mouse_x(), pg.get_mouse_y()
 
 def draw_buttons():
-    return Button(10,10,200,100, EXIT_TONE, "EXIT", 100), Button(30,130,150,50, BUTTON_TONE, "CLASSIFY", 40), Button(30,200,150,50, BUTTON_TONE, "ERASE", 40)
+    return (Button(10,10,200,100, EXIT_TONE, "EXIT", 100),
+            Button(30,150,150,50, BUTTON_TONE, "CLASSIFY", 40),
+            Button(30,220,150,50, BUTTON_TONE, "ERASE", 40),
+            Button(30,300,150,50, BUTTON_TONE, "SAVE", 40)
+    )
 
-def button_listen(exit_button, classify_button, erase_button, x, y):
+def button_listen(exit_button, classify_button, erase_button, save_button, x, y,buffer):
     if classify_button.click_signal(x,y):
         print("I was clicked")
     elif erase_button.click_signal(x,y):
         erase_button.erase()
     elif exit_button.click_signal(x,y):
         exit_button.exit()
+    elif save_button.click_signal(x,y):
+        save_button.save(buffer)
 
-def draw(x, y, width, pRef):
+def draw(x, y, width, pRef, buffer):
     if pg.mouse_button_down("LEFT"):
             if pg.mouse_button_pressed("LEFT") and x > HOZ_BOUND and y > VERT_BOUND :
                 for i in range(len(pRef)): pRef.pop()
                 pRef.append(mouse_pos())
             if x > HOZ_BOUND and y > VERT_BOUND:
                 pRef.append((x,y))
-                pg.draw_circle(pRef[0][0],pRef[0][1],width/2.5,"Black",True)
-                pg.draw_line(pRef[0][0], pRef[0][1], pRef[1][0], pRef[1][1], "Black", width=width)
-                pg.draw_circle(pRef[1][0],pRef[1][1],width/2.5,"Black",True)
+                a = (pRef[0][0]-HOZ_BOUND,pRef[0][1]-VERT_BOUND)
+                b = (pRef[1][0]-HOZ_BOUND,pRef[1][1]-VERT_BOUND)
+                buffer_draw(buffer, a, b, r=width)
+                pg.draw_circle(pRef[0][0],pRef[0][1],(2*width)/2.5,"Black",True)
+                pg.draw_line(pRef[0][0], pRef[0][1], pRef[1][0], pRef[1][1], "Black", width=2*width)
+                pg.draw_circle(pRef[1][0],pRef[1][1],(2*width)/2.5,"Black",True)
                 pRef.pop(0)
 
 def ui_init():
@@ -71,12 +143,15 @@ def ui_init():
     pg.draw_text("DIGIT CLASSIFIER",  HOZ_BOUND+20, (0+VERT_BOUND//2) - 25, "white", 70)
 
 def main_loop():
+    buffer = create_buffer((560,560))
     pRef = [(0,0)]
-    exit_button, classify_button, erase_button = draw_buttons()
+    exit_button, classify_button, erase_button, save_button = draw_buttons()
     while pg.window_not_closed():
         x,y = mouse_pos()
-        button_listen(exit_button,classify_button,erase_button, x, y)
-        draw(x,y,20, pRef)
+        button_listen(exit_button,classify_button,erase_button, save_button, x, y, buffer)
+        if erase_button.click_signal(x,y):
+            buffer = create_buffer((CANVAS_SIZE,CANVAS_SIZE))
+        draw(x,y,20, pRef, buffer)
         pg.update_window()
             
 

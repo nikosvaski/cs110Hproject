@@ -123,8 +123,10 @@ def bounding_box(buffer):
     row_max = np.max(ink_log, axis=0)[0]
     col_min = np.min(ink_log, axis=0)[1]
     row_min = np.min(ink_log, axis=0)[1]
-    return (row_min,col_min), (row_max,col_max)
-    #gives the first and last
+    point1 = (row_min,col_min)
+    point2 = (row_max,col_max)
+    return point1, point2
+    # gives the top left and bottom right of where the is drawn in parts of the buffer
 
 def get_slice(buffer, point1, point2):
     return buffer[point1[0]:point2[0]+1][point1[1]:point2[2]+1]

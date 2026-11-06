@@ -131,6 +131,14 @@ def bounding_box(buffer):
 def get_slice(buffer, point1, point2):
     return buffer[point1[0]:point2[0]+1][point1[1]:point2[2]+1]
 
+def downsample(slice):
+    dims = slice.shape
+    x_dim = dims[1]
+    y_dim = dims[0]
+    scale_along = max(x_dim,y_dim)
+    scale_factor = 20/scale_along
+    pass
+
 
 def save_image(buffer):
     img = pic.fromarray(buffer)

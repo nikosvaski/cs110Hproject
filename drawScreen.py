@@ -117,6 +117,19 @@ def buffer_draw(buffer, a, b, r):
 
 #pull it all together, use the above logic to draw white on a black working portion of the buffer and then put it into the buffer
 
+def bounding_box(buffer):
+    ink_log = np.argwhere(buffer>0)
+    col_max = np.max(ink_log, axis=0)[1]
+    row_max = np.max(ink_log, axis=0)[0]
+    col_min = np.min(ink_log, axis=0)[1]
+    row_min = np.min(ink_log, axis=0)[1]
+    return (row_min,col_min), (row_max,col_max)
+    #gives the first and last
+
+def get_slice(buffer, point1, point2):
+    return buffer[point1[0]:point2[0]+1][point1[1]:point2[2]+1]
+
+
 def save_image(buffer):
     img = pic.fromarray(buffer)
     img.save("img.png")

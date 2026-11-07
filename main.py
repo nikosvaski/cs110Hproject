@@ -46,7 +46,11 @@ class Button():
         pg.close_window()
 
     def save(self,buffer):
-        save_image(buffer)
+        p1, p2 = bounding_box(buffer)
+        ink_region = get_slice(buffer, p1, p2)
+        img = downsample(ink_region)
+        img = house(img)
+        save_image(img)
 
 # oh god this is where it starts
 # pixel buffer is a blank numpy array the size of the drawing canvas
@@ -122,14 +126,16 @@ def bounding_box(buffer):
     col_max = np.max(ink_log, axis=0)[1]
     row_max = np.max(ink_log, axis=0)[0]
     col_min = np.min(ink_log, axis=0)[1]
-    row_min = np.min(ink_log, axis=0)[1]
+    row_min = np.min(ink_log, axis=0)[0]
     point1 = (row_min,col_min)
     point2 = (row_max,col_max)
+    print(point1)
+    print(point2)
     return point1, point2
     # gives the top left and bottom right of where the is drawn in parts of the buffer
 
 def get_slice(buffer, point1, point2):
-    return buffer[point1[0]:point2[0]+1][point1[1]:point2[2]+1]
+    return buffer[point1[0]:point2[0]+1,point1[1]:point2[1]+1]
 
 def downsample(slice):
     dims = slice.shape
@@ -137,15 +143,19 @@ def downsample(slice):
     y_dim = dims[0]
     scale_along = max(x_dim,y_dim)
     scale_factor = 20/scale_along
-    new_dims = (x_dim*scale_factor,y_dim*scale_factor)
+    new_dims = (round(x_dim*scale_factor),round(y_dim*scale_factor))
     img = pic.fromarray(slice)
-    img.resize(new_dims, pic.Resampling.BOX)
-    img.save("img.png")
+    return img.resize(new_dims, pic.Resampling.BOX)
 
 
-def save_image(buffer):
-    img = pic.fromarray(buffer)
-    img.save("img.png")
+def save_image(image):
+    image.save("img.png")
+
+def house(image):
+    shell = np.zeros((28,28),dtype=np.uint8)
+    shell = pic.fromarray(shell)
+    pic.Image.paste(shell, image, (4, 4))
+    return shell
 
 # save the buffer to a png image using PIL
 

@@ -1,6 +1,7 @@
 # Imports the pythonGraph Module numpy and pillow
 import pythonGraph as pg
 import numpy as np
+from scipy import ndimage as sci
 from PIL import Image as pic
 # run pip install pythongraph numpy pillow 
 # to get this script to work
@@ -46,7 +47,19 @@ class Button():
         pg.close_window()
 
     def save(self,buffer):
-        save_image(buffer)
+        try:
+            p1, p2 = bounding_box(buffer)
+            ink_region = get_slice(buffer, p1, p2)
+            img = downsample(ink_region)
+            img = house(img)
+            img = get_COM(img)
+            img = pic.fromarray(img)
+            save_image(img)
+        except:
+            img = np.array((28,28),dtype=np.uint8)
+            img = pic.fromarray(img)
+            save_image(img)
+        
 
 # oh god this is where it starts
 # pixel buffer is a blank numpy array the size of the drawing canvas
@@ -117,9 +130,50 @@ def buffer_draw(buffer, a, b, r):
 
 #pull it all together, use the above logic to draw white on a black working portion of the buffer and then put it into the buffer
 
-def save_image(buffer):
-    img = pic.fromarray(buffer)
-    img.save("img.png")
+def bounding_box(buffer):
+    ink_log = np.argwhere(buffer>0)
+    col_max = np.max(ink_log, axis=0)[1]
+    row_max = np.max(ink_log, axis=0)[0]
+    col_min = np.min(ink_log, axis=0)[1]
+    row_min = np.min(ink_log, axis=0)[0]
+    point1 = (row_min,col_min)
+    point2 = (row_max,col_max)
+    print(point1)
+    print(point2)
+    return point1, point2
+    # gives the top left and bottom right of where the is drawn in parts of the buffer
+
+def get_slice(buffer, point1, point2):
+    return buffer[point1[0]:point2[0]+1,point1[1]:point2[1]+1]
+
+def downsample(slice):
+    dims = slice.shape
+    x_dim = dims[1]
+    y_dim = dims[0]
+    scale_along = max(x_dim,y_dim)
+    scale_factor = 20/scale_along
+    new_dims = (round(x_dim*scale_factor),round(y_dim*scale_factor))
+    img = pic.fromarray(slice)
+    return img.resize(new_dims, pic.Resampling.BOX)
+
+
+def save_image(image):
+    image.save("img.png")
+
+def house(image):
+    shell = np.zeros((28,28),dtype=np.uint8)
+    shell = pic.fromarray(shell)
+    pic.Image.paste(shell, image, (4, 4))
+    return shell
+
+def get_COM(image):
+    pixel_map = np.array(image)
+    com = sci.center_of_mass(pixel_map)
+    shift = (14-com[0],14-com[1])
+    centered = sci.shift(pixel_map, shift)
+    return centered
+
+
 
 # save the buffer to a png image using PIL
 

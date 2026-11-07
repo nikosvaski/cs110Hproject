@@ -1,6 +1,7 @@
 # Imports the pythonGraph Module numpy and pillow
 import pythonGraph as pg
 import numpy as np
+from scipy import ndimage as sci
 from PIL import Image as pic
 # run pip install pythongraph numpy pillow 
 # to get this script to work
@@ -46,11 +47,19 @@ class Button():
         pg.close_window()
 
     def save(self,buffer):
-        p1, p2 = bounding_box(buffer)
-        ink_region = get_slice(buffer, p1, p2)
-        img = downsample(ink_region)
-        img = house(img)
-        save_image(img)
+        try:
+            p1, p2 = bounding_box(buffer)
+            ink_region = get_slice(buffer, p1, p2)
+            img = downsample(ink_region)
+            img = house(img)
+            img = get_COM(img)
+            img = pic.fromarray(img)
+            save_image(img)
+        except:
+            img = np.array((28,28),dtype=np.uint8)
+            img = pic.fromarray(img)
+            save_image(img)
+        
 
 # oh god this is where it starts
 # pixel buffer is a blank numpy array the size of the drawing canvas
@@ -156,6 +165,15 @@ def house(image):
     shell = pic.fromarray(shell)
     pic.Image.paste(shell, image, (4, 4))
     return shell
+
+def get_COM(image):
+    pixel_map = np.array(image)
+    com = sci.center_of_mass(pixel_map)
+    shift = (14-com[0],14-com[1])
+    centered = sci.shift(pixel_map, shift)
+    return centered
+
+
 
 # save the buffer to a png image using PIL
 

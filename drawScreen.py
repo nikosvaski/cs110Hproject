@@ -137,7 +137,10 @@ def downsample(slice):
     y_dim = dims[0]
     scale_along = max(x_dim,y_dim)
     scale_factor = 20/scale_along
-    pass
+    new_dims = (x_dim*scale_factor,y_dim*scale_factor)
+    img = pic.fromarray(slice)
+    img.resize(new_dims, pic.Resampling.BOX)
+    img.save("img.png")
 
 
 def save_image(buffer):

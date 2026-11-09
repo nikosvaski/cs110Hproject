@@ -71,6 +71,16 @@ class Button():
         print(logits)
         print(get_decision(logits))
 
+class Predictor():
+    def __init__(self,x,y,width,height,color):
+        self.x = x
+        self.y = y
+        pg.draw_rectangle(x,y,x+width,y+height,color,True)
+
+    def update_prediction(self, prediction, confidence):
+        pg.draw_text(prediction,self.x + 25,self.y + 10,"white", 280)
+        pg.draw_text(confidence,self.x + 5,self.y + 220,"white", 30)
+        
 
         
         
@@ -277,6 +287,8 @@ def main_loop():
     buffer = create_buffer((560,560))
     pRef = [(0,0)]
     exit_button, classify_button, erase_button, save_button = draw_buttons()
+    predict_display = Predictor(30,370,150,250,"black")
+    predict_display.update_prediction("9","98% Confident")
     model = model_init()
     while pg.window_not_closed():
         x,y = mouse_pos()

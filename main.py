@@ -64,20 +64,25 @@ class Button():
         img = pic.fromarray(img)
         img.save("img.png")
 
-    def classify(self, model, buffer):
+    def classify(self, model, buffer, predictor):
         tensor = self.buffer_process(buffer)
         tensor = model_transforms(tensor)
         logits = infer(model,tensor)
         print(logits)
-        print(get_decision(logits))
+        prediction, confidence = get_decision(logits)
+        predictor.update_prediction(prediction,confidence)
 
 class Predictor():
     def __init__(self,x,y,width,height,color):
         self.x = x
         self.y = y
+        self.width = width
+        self.height = height
+        self.color = color
         pg.draw_rectangle(x,y,x+width,y+height,color,True)
 
     def update_prediction(self, prediction, confidence):
+        pg.draw_rectangle(self.x, self.y, self.x + self.width, self.y + self.height, self.color, True)
         pg.draw_text(prediction,self.x + 25,self.y + 10,"white", 280)
         pg.draw_text(confidence,self.x + 5,self.y + 220,"white", 30)
         
@@ -227,7 +232,7 @@ def get_decision(output_tensor):
     num = np.where(probabilities == max(probabilities))[0][0]
     decision = labels_map[num]
     confidence = max(probabilities)/np.sum(probabilities)
-    return decision, str(float(confidence)*100) + "%"
+    return str(decision), str(float(confidence)*100) + "%"
 
 
 # save the buffer to a png image using PIL
@@ -245,9 +250,9 @@ def draw_buttons():
 
 # button wrapper function for decomp
 
-def button_listen(exit_button, classify_button, erase_button, save_button, x, y, buffer, model):
+def button_listen(exit_button, classify_button, erase_button, save_button, x, y, buffer, model, predictor):
     if classify_button.click_signal(x,y):
-        classify_button.classify(model,buffer)
+        classify_button.classify(model,buffer,predictor)
     elif erase_button.click_signal(x,y):
         erase_button.erase()
     elif exit_button.click_signal(x,y):
@@ -286,13 +291,12 @@ def main_loop():
     # this is the main loop where everything runs
     buffer = create_buffer((560,560))
     pRef = [(0,0)]
-    exit_button, classify_button, erase_button, save_button = draw_buttons()
     predict_display = Predictor(30,370,150,250,"black")
-    predict_display.update_prediction("9","98% Confident")
+    exit_button, classify_button, erase_button, save_button = draw_buttons()
     model = model_init()
     while pg.window_not_closed():
         x,y = mouse_pos()
-        button_listen(exit_button,classify_button,erase_button, save_button, x, y, buffer, model)
+        button_listen(exit_button,classify_button,erase_button, save_button, x, y, buffer, model, predict_display)
         if erase_button.click_signal(x,y):
             buffer = create_buffer((CANVAS_SIZE,CANVAS_SIZE))
         draw(x,y,20, pRef, buffer)

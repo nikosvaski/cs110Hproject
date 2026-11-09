@@ -1,8 +1,11 @@
 # Imports the pythonGraph Module numpy and pillow
 import pythonGraph as pg
 import numpy as np
+import torch
+import torch.nn.functional as F
 from scipy import ndimage as sci
 from PIL import Image as pic
+from model import Classifier
 # run pip install pythongraph numpy pillow 
 # to get this script to work
 
@@ -40,6 +43,16 @@ class Button():
         if (mouse_x in range(self.x,self.x+self.width)) and (mouse_y in range(self.y,self.y+self.height)) and pg.mouse_button_pressed("LEFT"):
             return True
 
+    def buffer_process(self,buffer):
+        try:
+            p1, p2 = bounding_box(buffer)
+            ink_region = get_slice(buffer, p1, p2)
+            img = downsample(ink_region)
+            img = house(img)
+            return get_COM(img)
+        except:
+            return np.zeros((28,28))
+        
     def erase(self):
         pg.draw_rectangle(HOZ_BOUND,VERT_BOUND,SCREEN_WIDTH,SCREEN_HEIGHT,"white",True)
 
@@ -47,18 +60,19 @@ class Button():
         pg.close_window()
 
     def save(self,buffer):
-        try:
-            p1, p2 = bounding_box(buffer)
-            ink_region = get_slice(buffer, p1, p2)
-            img = downsample(ink_region)
-            img = house(img)
-            img = get_COM(img)
-            img = pic.fromarray(img)
-            save_image(img)
-        except:
-            img = np.array((28,28),dtype=np.uint8)
-            img = pic.fromarray(img)
-            save_image(img)
+        img = self.buffer_process(buffer)
+        img = pic.fromarray(img)
+        img.save("img.png")
+
+    def classify(self, model, buffer):
+        tensor = self.buffer_process(buffer)
+        tensor = model_transforms(tensor)
+        logits = infer(model,tensor)
+        print(logits)
+        print(get_decision(logits))
+
+
+        
         
 
 # oh god this is where it starts
@@ -173,6 +187,37 @@ def get_COM(image):
     centered = sci.shift(pixel_map, shift)
     return centered
 
+def model_transforms(img):
+    mean = 0.1307
+    std = 0.3081
+    img_tensor = torch.from_numpy(img)
+    img_tensor = img_tensor.to(torch.float32)
+    img_tensor = img_tensor/256
+    normalized = (img_tensor-mean)/std
+    normalized = normalized.unsqueeze(0)
+    normalized = normalized.unsqueeze(0)
+    return normalized
+
+def model_init():
+    model_state_dict = torch.load('model_state_dict.pth')
+    classifier = Classifier()
+    classifier.load_state_dict(model_state_dict)
+    classifier.eval()
+    return classifier
+
+def infer(model,input_tensor):
+    with torch.inference_mode():
+        return model(input_tensor)
+
+def get_decision(output_tensor):
+    labels_map = [0,1,2,3,4,5,6,7,8,9]
+    probabilities = F.softmax(output_tensor,1)
+    probabilities = probabilities.squeeze()
+    probabilities = probabilities.numpy()
+    num = np.where(probabilities == max(probabilities))[0][0]
+    decision = labels_map[num]
+    confidence = max(probabilities)/np.sum(probabilities)
+    return decision, str(float(confidence)*100) + "%"
 
 
 # save the buffer to a png image using PIL
@@ -190,9 +235,9 @@ def draw_buttons():
 
 # button wrapper function for decomp
 
-def button_listen(exit_button, classify_button, erase_button, save_button, x, y,buffer):
+def button_listen(exit_button, classify_button, erase_button, save_button, x, y, buffer, model):
     if classify_button.click_signal(x,y):
-        print("I was clicked")
+        classify_button.classify(model,buffer)
     elif erase_button.click_signal(x,y):
         erase_button.erase()
     elif exit_button.click_signal(x,y):
@@ -232,9 +277,10 @@ def main_loop():
     buffer = create_buffer((560,560))
     pRef = [(0,0)]
     exit_button, classify_button, erase_button, save_button = draw_buttons()
+    model = model_init()
     while pg.window_not_closed():
         x,y = mouse_pos()
-        button_listen(exit_button,classify_button,erase_button, save_button, x, y, buffer)
+        button_listen(exit_button,classify_button,erase_button, save_button, x, y, buffer, model)
         if erase_button.click_signal(x,y):
             buffer = create_buffer((CANVAS_SIZE,CANVAS_SIZE))
         draw(x,y,20, pRef, buffer)

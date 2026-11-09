@@ -14,7 +14,7 @@ from torchvision.transforms import v2
 
 
 BATCH_SIZE = 64
-EPOCHS = 1
+EPOCHS = 5
 
 LOSS_FN = nn.CrossEntropyLoss()
 DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu"
@@ -23,7 +23,7 @@ DEVICE = torch.accelerator.current_accelerator().type if torch.accelerator.is_av
 
 
 
-class NeuralNetwork(nn.Module):
+class Classifier(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
@@ -43,7 +43,7 @@ class NeuralNetwork(nn.Module):
             nn.Flatten(),
             nn.Linear(3136,128),
             nn.ReLU(),
-            nn.Linear(128,10)
+            nn.Linear(128,10),
         )
 
         # this is the next stage of the model, it turns the 4-dimensional tensor and flattens 
@@ -181,7 +181,7 @@ def show_model(model):
 
 if __name__ == "__main__": # MAIN RUNTIME SEQUENCE FOR FILE
     print(f"Using {DEVICE} device")
-    model = NeuralNetwork().to(DEVICE)
+    model = Classifier().to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     # specify the model object and optimizer algorithm to be used in training
 

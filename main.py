@@ -232,7 +232,7 @@ def get_decision(output_tensor):
     num = np.where(probabilities == max(probabilities))[0][0]
     decision = labels_map[num]
     confidence = max(probabilities)/np.sum(probabilities)
-    return str(decision), str(float(confidence)*100) + "%"
+    return str(decision), str(round(float(confidence)*100,3)) + "%"
 
 
 # save the buffer to a png image using PIL

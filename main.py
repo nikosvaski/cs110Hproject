@@ -43,6 +43,9 @@ class Button():
         if (mouse_x in range(self.x,self.x+self.width)) and (mouse_y in range(self.y,self.y+self.height)) and pg.mouse_button_pressed("LEFT"):
             return True
 
+    # function that pulls together the buffer that was constructed during user drawing
+    # process cuts the image down to its bounds, returns a only the bounding box,
+    # downsamples it to 20x20 pixels, and then centers it in the picture
     def buffer_process(self,buffer):
         try:
             p1, p2 = bounding_box(buffer)
@@ -64,6 +67,7 @@ class Button():
         img = pic.fromarray(img)
         img.save("img.png")
 
+    #connects the models output to the prediction screen through clicking input
     def classify(self, model, buffer, predictor):
         tensor = self.buffer_process(buffer)
         tensor = model_transforms(tensor)
@@ -72,6 +76,7 @@ class Button():
         prediction, confidence = get_decision(logits)
         predictor.update_prediction(prediction,confidence)
 
+# screen where the model's prediction from the user drawing is dispayed
 class Predictor():
     def __init__(self,x,y,width,height,color):
         self.x = x
@@ -80,7 +85,7 @@ class Predictor():
         self.height = height
         self.color = color
         pg.draw_rectangle(x,y,x+width,y+height,color,True)
-
+    # display the prediction on the panel
     def update_prediction(self, prediction, confidence):
         pg.draw_rectangle(self.x, self.y, self.x + self.width, self.y + self.height, self.color, True)
         pg.draw_text(prediction,self.x + 25,self.y + 10,"white", 280)
@@ -172,9 +177,12 @@ def bounding_box(buffer):
     return point1, point2
     # gives the top left and bottom right of where the is drawn in parts of the buffer
 
+# slices from the buffer the bounding box where there is ink
 def get_slice(buffer, point1, point2):
     return buffer[point1[0]:point2[0]+1,point1[1]:point2[1]+1]
 
+# scale the image down from whatever dimensions were present in the slice to a 20x20 image
+# greys into 0-256 space where pixels are compressed and line boundaries
 def downsample(slice):
     dims = slice.shape
     x_dim = dims[1]
@@ -185,16 +193,19 @@ def downsample(slice):
     img = pic.fromarray(slice)
     return img.resize(new_dims, pic.Resampling.BOX)
 
-
+#saves the image to a file for reference
 def save_image(image):
     image.save("img.png")
 
+# put the 20x20 scaled down image into a blank 28x28 canvas, from the bottom left corner
 def house(image):
     shell = np.zeros((28,28),dtype=np.uint8)
     shell = pic.fromarray(shell)
     pic.Image.paste(shell, image, (4, 4))
     return shell
 
+# use a weighted sum of all the pixels to find out where the ink respective "center" of the picture is
+# and place the image wrt its center in the center of the image
 def get_COM(image):
     pixel_map = np.array(image)
     com = sci.center_of_mass(pixel_map)
@@ -202,6 +213,8 @@ def get_COM(image):
     centered = sci.shift(pixel_map, shift)
     return centered
 
+# using the mean and stdev of every input for the mnist dataset, transform the ink values to match training data.
+# house it in 2 extra dimensions to match expected input for the model.
 def model_transforms(img):
     mean = 0.1307
     std = 0.3081
@@ -213,6 +226,7 @@ def model_transforms(img):
     normalized = normalized.unsqueeze(0)
     return normalized
 
+# load the trained model weights from the .pth file that was produced when the model was trained
 def model_init():
     model_state_dict = torch.load('model_state_dict.pth')
     classifier = Classifier()
@@ -220,10 +234,12 @@ def model_init():
     classifier.eval()
     return classifier
 
+# set the torch library to inference mode to save memory and pass the input tensor through it
 def infer(model,input_tensor):
     with torch.inference_mode():
         return model(input_tensor)
 
+# clean up the output tensor and match the probability space that it returns to a clean integer
 def get_decision(output_tensor):
     labels_map = [0,1,2,3,4,5,6,7,8,9]
     probabilities = F.softmax(output_tensor,1)
